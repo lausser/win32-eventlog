@@ -5,6 +5,8 @@
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include <w32api.h>
+#include <winevt.h>
 #include "EXTERN.h"
 #include "perl.h"
 #include "XSUB.h"
@@ -611,7 +613,11 @@ CODE:
     lpEvtLogCtlBuf lpEvtLog = SVE(hEventLog);
     RETVAL = FALSE;
     if ((lpEvtLog != NULL) && (lpEvtLog->dwID == EVTLOGID) &&
+#if (_WIN32_WINNT >= 0x0600)
+        EvtClose(lpEvtLog->hLog))
+#else
 	CloseEventLog(lpEvtLog->hLog))
+#endif
     {
 	if (lpEvtLog->BufPtr)
 	    Safefree(lpEvtLog->BufPtr);
@@ -707,7 +713,23 @@ CODE:
     lpEvtLog->BufLen = EVTLOGBUFSIZE;
     New(1908, lpEvtLog->BufPtr, lpEvtLog->BufLen, BYTE);
     RETVAL = FALSE;
+#if (_WIN32_WINNT >= 0x0600)
+printf("opennnnnnnnnnnnnnnnnnnnnnnnnnn %s\n", lpszSourceName);
+    EVT_HANDLE Session = NULL;
+    DWORD Flags = EvtOpenFilePath;
+    if (lpszUNCServerName != NULL) {
+/*
+        Session = EvtOpenSession();
+*/
+    }
+    if (strchr(lpszSourceName, '/')) {
+        Flags = EvtOpenChannelPath;
+    }
+    lpEvtLog->hLog = EvtOpenLog(Session, (LPCWSTR)lpszSourceName, Flags);
+#else
+    RETVAL = FALSE;
     lpEvtLog->hLog = OpenEventLogA(lpszUNCServerName,lpszSourceName);
+#endif
     if (lpEvtLog->hLog) {
 	/* return info... */
 	lpEvtLog->dwID          = EVTLOGID;
